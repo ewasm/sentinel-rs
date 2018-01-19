@@ -1,0 +1,16 @@
+[package]
+name = "sentinel-rs"
+version = "0.0.0"
+authors = ["Alex Beregszaszi <alex@rtfs.hu>"]
+repository = "https://github.com/ewasm/sentinel-rs"
+homepage = "https://github.com/ewasm/sentinel-rs"
+license = "Apache-2.0"
+readme = "README.md"
+description = "Validator and metering injector for eWASM."
+keywords = ["ewasm"]
+publish = false
+
+[dependencies]
+parity-wasm = "0.17"
+log = "0.3"
+rustc-demangle = "0.1.5"
