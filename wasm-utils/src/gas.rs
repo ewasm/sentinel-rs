@@ -202,8 +202,8 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 
 	mbuilder.push_import(
 		builder::import()
-			.module("env")
-			.field("gas")
+			.module("ethereum")
+			.field("useGas")
 			.external().func(import_sig)
 			.build()
 		);
