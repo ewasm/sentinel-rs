@@ -11,6 +11,9 @@ keywords = ["ewasm"]
 publish = false
 
 [dependencies]
-parity-wasm = "0.17"
-log = "0.3"
-rustc-demangle = "0.1.5"
+ewasm_api = { git = "https://github.com/ewasm/ewasm-rust-api", tag = "0.4.0" }
+pwasm-utils = { path = "wasm-utils" }
+parity-wasm = "0.31"
+
+[lib]
+crate-type = ["cdylib"]
