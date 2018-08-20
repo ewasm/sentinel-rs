@@ -1,0 +1,27 @@
+[package]
+name = "pwasm-utils"
+version = "0.5.0"
+authors = ["Nikolay Volf <nikvolf@gmail.com>", "Sergey Pepyakin <s.pepyakin@gmail.com>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+description = "Collection of command-line utilities and corresponding Rust api for producing pwasm-compatible executables"
+keywords = ["wasm", "webassembly", "pwasm"]
+
+[dependencies]
+parity-wasm = { version = "0.31", default-features = false }
+log = { version = "0.4", default-features = false }
+byteorder = { version = "1", default-features = false }
+
+[dev-dependencies]
+tempdir = "0.3"
+wabt = "0.2"
+diff = "0.1.11"
+
+[features]
+default = ["std"]
+std = ["parity-wasm/std", "log/std", "byteorder/std"]
+
+[workspace]
+members = [
+  "./cli",
+]
