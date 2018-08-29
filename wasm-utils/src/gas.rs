@@ -20,15 +20,15 @@ pub fn update_call_index(instructions: &mut elements::Instructions, inserted_ind
 ///
 /// ```ignore
 /// loop
-///   i32.const 1
+///   i64.const 1
 ///   get_local 0
-///   i32.sub
+///   i64.sub
 ///   tee_local 0
 ///   br_if 0
 /// end
 /// ```
 ///
-/// The start of the block is `i32.const 1`.
+/// The start of the block is `i64.const 1`.
 ///
 #[derive(Debug)]
 struct BlockEntry {
@@ -101,13 +101,13 @@ fn add_grow_counter(module: elements::Module, rules: &rules::Set, gas_func: u32)
 	let mut b = builder::from_module(module);
 	b.push_function(
 		builder::function()
-			.signature().params().i32().build().with_return_type(Some(elements::ValueType::I32)).build()
+			.signature().params().i64().build().with_return_type(Some(elements::ValueType::I64)).build()
 			.body()
 				.with_instructions(elements::Instructions::new(vec![
 					GetLocal(0),
 					GetLocal(0),
-					I32Const(rules.grow_cost() as i32),
-					I32Mul,
+					I64Const(rules.grow_cost() as i64),
+					I64Mul,
 					// todo: there should be strong guarantee that it does not return anything on stack?
 					Call(gas_func),
 					GrowMemory(0),
@@ -175,7 +175,7 @@ pub fn inject_counter(
 	for block in counter.blocks {
 		let effective_pos = block.start_pos + cumulative_offset;
 
-		instructions.elements_mut().insert(effective_pos, I32Const(block.cost as i32));
+		instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
 		instructions.elements_mut().insert(effective_pos+1, Call(gas_func));
 
 		// Take into account these two inserted instructions.
@@ -196,7 +196,7 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	let mut mbuilder = builder::from_module(module);
 	let import_sig = mbuilder.push_signature(
 		builder::signature()
-			.param().i32()
+			.param().i64()
 			.build_sig()
 		);
 
@@ -275,10 +275,10 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
@@ -295,7 +295,7 @@ mod tests {
 
 		assert_eq!(
 			&vec![
-				I32Const(3),
+				I64Const(3),
 				Call(0),
 				GetGlobal(0),
 				Call(2),
@@ -309,8 +309,8 @@ mod tests {
 			&vec![
 				GetLocal(0),
 				GetLocal(0),
-				I32Const(10000),
-				I32Mul,
+				I64Const(10000),
+				I64Mul,
 				Call(0),
 				GrowMemory(0),
 				End,
@@ -330,10 +330,10 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
@@ -350,7 +350,7 @@ mod tests {
 
 		assert_eq!(
 			&vec![
-				I32Const(3),
+				I64Const(3),
 				Call(0),
 				GetGlobal(0),
 				GrowMemory(0),
@@ -373,10 +373,10 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
@@ -392,7 +392,7 @@ mod tests {
 
 		assert_eq!(
 			&vec![
-				I32Const(2),
+				I64Const(2),
 				Call(0),
 				GetGlobal(0),
 				End
@@ -409,10 +409,10 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
@@ -434,11 +434,11 @@ mod tests {
 
 		assert_eq!(
 			&vec![
-				I32Const(4),
+				I64Const(4),
 				Call(0),
 				GetGlobal(0),
 				Block(elements::BlockType::NoResult),
-					I32Const(4),
+					I64Const(4),
 					Call(0),
 					GetGlobal(0),
 					GetGlobal(0),
@@ -459,10 +459,10 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
@@ -487,17 +487,17 @@ mod tests {
 
 		assert_eq!(
 			&vec![
-				I32Const(4),
+				I64Const(4),
 				Call(0),
 				GetGlobal(0),
 				If(elements::BlockType::NoResult),
-					I32Const(4),
+					I64Const(4),
 					Call(0),
 					GetGlobal(0),
 					GetGlobal(0),
 					GetGlobal(0),
 				Else,
-					I32Const(3),
+					I64Const(3),
 					Call(0),
 					GetGlobal(0),
 					GetGlobal(0),
@@ -517,14 +517,14 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body().build()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
@@ -549,17 +549,17 @@ mod tests {
 
 		assert_eq!(
 			&vec![
-				I32Const(4),
+				I64Const(4),
 				Call(0),
 				Call(1),
 				If(elements::BlockType::NoResult),
-					I32Const(4),
+					I64Const(4),
 					Call(0),
 					Call(1),
 					Call(1),
 					Call(1),
 				Else,
-					I32Const(3),
+					I64Const(3),
 					Call(0),
 					Call(1),
 					Call(1),
@@ -580,10 +580,10 @@ mod tests {
 
 		let module = builder::module()
 			.global()
-				.value_type().i32()
+				.value_type().i64()
 				.build()
 			.function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
 					.with_instructions(elements::Instructions::new(
 						vec![
