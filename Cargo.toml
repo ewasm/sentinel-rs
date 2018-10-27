@@ -14,6 +14,7 @@ publish = false
 ewasm_api = { git = "https://github.com/ewasm/ewasm-rust-api", tag = "0.4.0" }
 pwasm-utils = { path = "wasm-utils" }
 parity-wasm = "0.31"
+eci = { git = "https://github.com/axic/libeci", tag = "status-0.1.1" }
 
 [lib]
 crate-type = ["cdylib"]
