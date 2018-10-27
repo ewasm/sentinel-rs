@@ -17,3 +17,6 @@ parity-wasm = "0.31"
 
 [lib]
 crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
