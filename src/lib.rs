@@ -15,9 +15,9 @@ fn validate_contract(code: &[u8]) -> bool {
 }
 
 fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error> {
-    if !validate_contract(code) {
-        return Err(parity_wasm::elements::Error::Other("Contract doesn't meet ECI/EEI restrictions."));
-    }
+    //if !validate_contract(code) {
+    //   return Err(parity_wasm::elements::Error::Other("Contract doesn't meet ECI/EEI restrictions."));
+    //}
 
     let module = parity_wasm::deserialize_buffer(&code)?;
 
