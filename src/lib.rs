@@ -21,7 +21,12 @@ fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error>
 
     let module = parity_wasm::deserialize_buffer(&code)?;
 
-    let result = match pwasm_utils::inject_gas_counter(module, &Default::default()) {
+    let memory_page_cost = 256 * 1024; // 256k gas for 1 page (64k) of memory
+
+    let config = pwasm_utils::rules::Set::default()
+        .with_grow_cost(memory_page_cost);
+
+    let result = match pwasm_utils::inject_gas_counter(module, &config) {
         Ok(output) => output,
         Err(_) => return Err(parity_wasm::elements::Error::Other("Metering injection failed.")),
     };
