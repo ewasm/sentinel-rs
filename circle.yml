@@ -1,0 +1,27 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: rust:1
+    steps:
+      - checkout
+      - run:
+          name: Update rustc
+          command: |
+            rustup target add wasm32-unknown-unknown
+            rustup component add rustfmt-preview
+            rustup update
+      - run:
+           name: Install tools
+           command: |
+             cargo install just chisel
+      - run:
+           name: Check formatting
+           command: |
+             rustfmt --version
+             cargo fmt
+             git diff --exit-code
+      - run:
+          name: Build
+          command: just
