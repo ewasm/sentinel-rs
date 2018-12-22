@@ -1,12 +1,12 @@
+extern crate eci;
 extern crate ewasm_api;
 extern crate parity_wasm;
 extern crate pwasm_utils;
-extern crate eci;
 
 fn validate_contract(code: &[u8]) -> bool {
     let mut checker = eci::checker::EcicChecker::default(&code.to_vec());
     checker.fire();
-    return match checker.status() {
+    match checker.status() {
         eci::checklist::CheckStatus::Unknown => true,
         eci::checklist::CheckStatus::Nonexistent => false,
         eci::checklist::CheckStatus::Malformed => false,
@@ -31,7 +31,11 @@ fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error>
 
     let result = match pwasm_utils::inject_gas_counter(module, &config) {
         Ok(output) => output,
-        Err(_) => return Err(parity_wasm::elements::Error::Other("Metering injection failed.")),
+        Err(_) => {
+            return Err(parity_wasm::elements::Error::Other(
+                "Metering injection failed.",
+            ))
+        }
     };
 
     parity_wasm::serialize(result)
