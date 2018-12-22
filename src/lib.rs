@@ -21,10 +21,12 @@ fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error>
 
     let module = parity_wasm::deserialize_buffer(&code)?;
 
+    // TODO: extract values from the GasCostTable
+
     let memory_page_cost = 256 * 1024; // 256k gas for 1 page (64k) of memory
 
     let config = pwasm_utils::rules::Set::default()
-        .with_forbidden_floats()
+        .with_forbidden_floats() // Reject floating point opreations.
         .with_grow_cost(memory_page_cost);
 
     let result = match pwasm_utils::inject_gas_counter(module, &config) {
@@ -39,6 +41,7 @@ fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error>
 pub extern "C" fn main() {
     let code = ewasm_api::calldata_acquire();
 
+    // TODO: make this a configuration feature
     let total_cost = 32 * code.len();
     ewasm_api::consume_gas(total_cost as u64);
 
