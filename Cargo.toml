@@ -14,7 +14,6 @@ publish = false
 ewasm_api = "0.5"
 pwasm-utils = { path = "wasm-utils" }
 parity-wasm = "0.31"
-eci = { git = "https://github.com/axic/libeci", tag = "status-0.1.1" }
 
 [lib]
 crate-type = ["cdylib"]
