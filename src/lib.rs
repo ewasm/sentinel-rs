@@ -1,8 +1,47 @@
 extern crate ewasm_api;
+extern crate libchisel;
 extern crate parity_wasm;
 extern crate pwasm_utils;
 
+use libchisel::{checkstartfunc::*, verifyexports::*, verifyimports::*};
+use libchisel::{ModulePreset, ModuleValidator};
+
+fn validate_contract(module: &[u8]) -> bool {
+    let module = libchisel::module_from_slice(module);
+
+    // Ensure no start functions is present.
+    if !CheckStartFunc::new(false).validate(&module).unwrap() {
+        return false;
+    }
+
+    // Ensure only valid exports are present.
+    if !VerifyExports::with_preset("ewasm")
+        .unwrap()
+        .validate(&module)
+        .unwrap()
+    {
+        return false;
+    }
+
+    // Ensure only valid imports are used.
+    if !VerifyImports::with_preset("ewasm")
+        .unwrap()
+        .validate(&module)
+        .unwrap()
+    {
+        return false;
+    }
+
+    true
+}
+
 fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error> {
+    if !validate_contract(&code) {
+        return Err(parity_wasm::elements::Error::Other(
+            "Contract doesn't meet ECI/EEI restrictions.",
+        ));
+    }
+
     let module = parity_wasm::deserialize_buffer(&code)?;
 
     // TODO: extract values from the GasCostTable
