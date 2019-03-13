@@ -18,7 +18,7 @@ fn inject_metering(code: &[u8]) -> Result<Vec<u8>, parity_wasm::elements::Error>
         Err(_) => {
             return Err(parity_wasm::elements::Error::Other(
                 "Metering injection failed.",
-            ))
+            ));
         }
     };
 

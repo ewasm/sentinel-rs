@@ -9,6 +9,7 @@ readme = "README.md"
 description = "Validator and metering injector for eWASM."
 keywords = ["ewasm"]
 publish = false
+edition = "2018"
 
 [dependencies]
 ewasm_api = "0.5"
