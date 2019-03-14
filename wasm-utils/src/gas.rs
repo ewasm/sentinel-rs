@@ -1,7 +1,7 @@
 use std::vec::Vec;
 
 use parity_wasm::{elements, builder};
-use rules;
+use crate::rules;
 
 pub fn update_call_index(instructions: &mut elements::Instructions, inserted_index: u32) {
 	use parity_wasm::elements::Instruction::*;
