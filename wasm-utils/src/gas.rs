@@ -75,14 +75,16 @@ impl Counter {
 	
 	fn increment_control_flow(&mut self, val: u32) -> Result<(), ()> {
 		/*
-		;; if the current block has 0 cost, then we're seeing a sequence of nested control flow
+		;; if the current block and parent block has 0 cost, then we're seeing a sequence of nested blocks
+
 		(block $B1
 		  (block $B2
 		    (block $B3
 		      ...
 		     )))
-		;; instead of calling to useGas once after each block, we can sum them up and charge for all three at the
-		;; top of block $B1
+
+		;; instead of calling to useGas once after each block, we can sum up the 1 gas per `block` instructions
+		;; and charge for all three at the top of block $B1
 
 		;; instead of this:
 		(block $B1
@@ -107,13 +109,13 @@ impl Counter {
 		let top_block = self.blocks.get_mut(*stack_top).ok_or_else(|| ())?;
 
 		if top_block.cost > 0 || *stack_top == 0 {
-			// if current block already has preceding instructions, or if there's no parent block,
+			// if current block already has cost (i.e. previous instructions), or if there's no parent block,
 			// then increment gas in this block
 			println!("current block already has instructions, or no parent block. incrementing and returning...");
 			top_block.cost = top_block.cost.checked_add(val).ok_or_else(|| ())?;
 			Ok(())
 		} else {
-			// find closest ancestor block with cost
+			// find closest ancestor block (starting from top of stack and going down) with useGas call and add 1
 			for (i, stack_i) in self.stack.iter().rev().enumerate() {
 				println!("stack at position {}: {:?}", i, stack_i);
 				let block_i = self.blocks.get_mut(*stack_i).ok_or_else(|| ())?;
