@@ -55,11 +55,11 @@ impl Counter {
 	}
 
 	/// Begin a new block.
-	fn begin(&mut self, cursor: usize) {
+	fn begin(&mut self, cursor: usize, cost: u32) {
 		let block_idx = self.blocks.len();
 		self.blocks.push(BlockEntry {
 			start_pos: cursor,
-			cost: 1,
+			cost: cost,
 		});
 		self.stack.push(block_idx);
 	}
@@ -69,7 +69,63 @@ impl Counter {
 	/// Finalized blocks have final cost which will not change later.
 	fn finalize(&mut self) -> Result<(), ()> {
 		self.stack.pop().ok_or_else(|| ())?;
+		println!("stack size after finalizing: {:?}", self.stack.len());
 		Ok(())
+	}
+	
+	fn increment_control_flow(&mut self, val: u32) -> Result<(), ()> {
+		/*
+		;; if the current block has 0 cost, then we're seeing a sequence of nested control flow
+		(block $B1
+		  (block $B2
+		    (block $B3
+		      ...
+		     )))
+		;; instead of calling to useGas once after each block, we can sum them up and charge for all three at the
+		;; top of block $B1
+
+		;; instead of this:
+		(block $B1
+		  (call useGas (i32.const 1))
+		  (block $B2
+		    (call useGas (i32.const 1))
+		    (block $B3
+		      (call useGas (i32.const 1))
+		      ...
+		      )))
+
+		;; do this:
+		(block $B1
+		  (call useGas (i32.const 3))
+		  (block $B2
+		    (block $B3
+		      ...
+		      )))
+		*/
+
+		let stack_top = self.stack.last_mut().ok_or_else(|| ())?;
+		let top_block = self.blocks.get_mut(*stack_top).ok_or_else(|| ())?;
+
+		if top_block.cost > 0 || *stack_top == 0 {
+			// if current block already has preceding instructions, or if there's no parent block,
+			// then increment gas in this block
+			println!("current block already has instructions, or no parent block. incrementing and returning...");
+			top_block.cost = top_block.cost.checked_add(val).ok_or_else(|| ())?;
+			Ok(())
+		} else {
+			// find closest ancestor block with cost
+			for (i, stack_i) in self.stack.iter().rev().enumerate() {
+				println!("stack at position {}: {:?}", i, stack_i);
+				let block_i = self.blocks.get_mut(*stack_i).ok_or_else(|| ())?;
+				println!("block_i has cost: {:?}", block_i.cost);
+				if *stack_i == 0 || block_i.cost > 0 {
+					println!("found ancestor with cost > 0 or root block. incrementing and returning...");
+					block_i.cost = block_i.cost.checked_add(val).ok_or_else(|| ())?;
+					break;
+				}
+			}
+			Ok(())
+		}
 	}
 
 	/// Increment the cost of the current block by the specified value.
@@ -130,23 +186,45 @@ pub fn inject_counter(
 	let mut counter = Counter::new();
 
 	// Begin an implicit function (i.e. `func...end`) block.
-	counter.begin(0);
+	counter.begin(0, 0);
 
 	for cursor in 0..instructions.elements().len() {
 		let instruction = &instructions.elements()[cursor];
 		match *instruction {
-			Block(_) | If(_) | Loop(_) => {
+			Block(_) => {
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
-				counter.increment(instruction_cost)?;
+				//counter.increment(instruction_cost)?;
+				counter.increment_control_flow(instruction_cost)?;
 
 				// Begin new block. The cost of the following opcodes until `End` or `Else` will
 				// be included into this block.
-				counter.begin(cursor + 1);
-			}
+
+				// begin blocks with cost 0
+				counter.begin(cursor + 1, 0);
+			},
+			If(_) => {
+				// Increment previous block with the cost of the current opcode.
+				let instruction_cost = rules.process(instruction)?;
+				//counter.increment(instruction_cost)?;
+				counter.increment_control_flow(instruction_cost)?;
+				
+				// begin If with cost 1.
+				counter.begin(cursor + 1, 1);
+			},
+			Loop(_) => {
+				// Increment previous block with the cost of the current opcode.
+				let instruction_cost = rules.process(instruction)?;
+				//counter.increment(instruction_cost)?;
+				counter.increment_control_flow(instruction_cost)?;
+				
+				// begin loop with cost 1. 
+				counter.begin(cursor + 1, 1);
+			},
 			End => {
 				// Just finalize current block.
 				counter.finalize()?;
+				counter.begin(cursor + 1, 0);
 			},
 			Else => {
 				// `Else` opcode is being encountered. So the case we are looking at:
@@ -160,7 +238,7 @@ pub fn inject_counter(
 				// Finalize the current block ('then' part of the if statement),
 				// and begin another one for the 'else' part.
 				counter.finalize()?;
-				counter.begin(cursor + 1);
+				counter.begin(cursor + 1, 1);
 			}
 			_ => {
 				// An ordinal non control flow instruction. Just increment the cost of the current block.
@@ -173,13 +251,15 @@ pub fn inject_counter(
 	// Then insert metering calls.
 	let mut cumulative_offset = 0;
 	for block in counter.blocks {
-		let effective_pos = block.start_pos + cumulative_offset;
+		if block.cost > 0 {
+			let effective_pos = block.start_pos + cumulative_offset;
 
-		instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
-		instructions.elements_mut().insert(effective_pos+1, Call(gas_func));
+			instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
+			instructions.elements_mut().insert(effective_pos+1, Call(gas_func));
 
-		// Take into account these two inserted instructions.
-		cumulative_offset += 2;
+			// Take into account these two inserted instructions.
+			cumulative_offset += 2;
+		}
 	}
 
 	Ok(())
