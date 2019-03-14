@@ -3,7 +3,7 @@ use std::vec::Vec;
 use std::borrow::ToOwned;
 
 use parity_wasm::{elements, builder};
-use optimizer::{import_section, export_section};
+use crate::optimizer::{import_section, export_section};
 use byteorder::{LittleEndian, ByteOrder};
 
 type Insertion = (usize, u32, u32, String);

@@ -6,6 +6,7 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 description = "Collection of command-line utilities and corresponding Rust api for producing pwasm-compatible executables"
 keywords = ["wasm", "webassembly", "pwasm"]
+edition = "2018"
 
 [dependencies]
 parity-wasm = { version = "0.31", default-features = false }
