@@ -15,9 +15,12 @@ fn main() {
 
 	let memory_page_cost = 256 * 1024; // 256k gas for 1 page (64k) of memory
 
+	// let config = pwasm_utils::rules::Set::default()
+	//	.with_forbidden_floats() // Reject floating point opreations.
+	//	.with_grow_cost(memory_page_cost);
+
 	let config = pwasm_utils::rules::Set::default()
-		.with_forbidden_floats() // Reject floating point opreations.
-		.with_grow_cost(memory_page_cost);
+		.with_forbidden_floats();
 
 	// Loading module
 	let module = parity_wasm::deserialize_file(&args[1]).expect("Module deserialization to succeed");
