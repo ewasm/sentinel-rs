@@ -22,6 +22,10 @@ name = "wasm-gas"
 path = "gas/main.rs"
 
 [[bin]]
+name = "wasm-minify"
+path = "minify/main.rs"
+
+[[bin]]
 name = "wasm-build"
 path = "build/main.rs"
 
