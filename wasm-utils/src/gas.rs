@@ -130,7 +130,11 @@ fn inject_inline_gas(module: elements::Module) -> elements::Module {
 	let global_gas_index = module.globals_space() as u32;
 	println!("total globals before injecting gas global: {:?}", global_gas_index);
 
-	let b = builder::from_module(module);
+	let gas_func_index = module.functions_space() as u32;
+
+	let b = builder::from_module(module)
+				// the export is a workaround to add debug name "useGas"
+				.with_export(elements::ExportEntry::new("useGas".to_string(), elements::Internal::Function(gas_func_index)));
 
 	let mut b2 = b.global().mutable()
 		.value_type().i32().init_expr(elements::Instruction::I32Const(DEFAULT_START_GAS))
