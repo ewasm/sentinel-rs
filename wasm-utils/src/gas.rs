@@ -19,11 +19,10 @@ pub fn find_finish_import(module: elements::Module) -> (elements::Module, Option
 	for section in module.sections() {
 		match *section {
 			elements::Section::Import(ref import_section) => {
-				println!("  Imports: {}", import_section.entries().len());
 				for (i, e) in import_section.entries().iter().enumerate() {
 					//println!("    {}.{}  external has index {:?}", e.module(), e.field(), i);
 					if e.module() == "ethereum" && e.field() == "finish" {
-						println!("ethereum.finish has index: {}", i);
+						println!("ethereum.finish import has index: {}", i);
 						finish_ix = Some(i as u32);
 					}
 				};
@@ -43,7 +42,6 @@ pub fn find_usegas_import(module: elements::Module) -> (elements::Module, Option
 	for section in module.sections() {
 		match *section {
 			elements::Section::Import(ref import_section) => {
-				println!("  Imports: {}", import_section.entries().len());
 				for (i, e) in import_section.entries().iter().enumerate() {
 					if e.module() == "ethereum" && e.field() == "useGas" {
 						println!("ethereum.useGas import has index: {}", i);
@@ -106,7 +104,6 @@ impl Counter {
 	/// Begin a new block.
 	fn begin(&mut self, cursor: usize, cost: u32, flow_up: bool) {
 		let block_idx = self.blocks.len();
-		println!("beginning new block at idx: {:?}", block_idx);
 		self.blocks.push(BlockEntry {
 			start_pos: cursor,
 			cost: cost,
@@ -120,7 +117,6 @@ impl Counter {
 	/// Finalized blocks have final cost which will not change later.
 	fn finalize(&mut self) -> Result<(), ()> {
 		self.stack.pop().ok_or_else(|| ())?;
-		println!("stack size after finalizing: {:?}", self.stack.len());
 		Ok(())
 	}
 
@@ -159,12 +155,10 @@ impl Counter {
 		// find closest ancestor block (starting from top of stack and going down) with blocked flow and add 1
 
 		for (i, stack_i) in self.stack.iter().rev().enumerate() {
-			println!("stack at position {}: {:?}", i, stack_i);
 			let block_i = self.blocks.get_mut(*stack_i).ok_or_else(|| ())?;
-			println!("block_{:?} has cost: {:?}", *stack_i, block_i.cost);
 			if !block_i.flow_up || *stack_i == 0 {
 				block_i.cost = block_i.cost.checked_add(val).ok_or_else(|| ())?;
-				println!("found ancestor with blocked flow or no parent. incrementing to new cost: {:?} and returning...", block_i.cost);
+				//println!("found ancestor with blocked flow or no parent. incrementing to new cost: {:?} and returning...", block_i.cost);
 				break;
 			}
 		}
@@ -178,7 +172,6 @@ impl Counter {
 		let top_block = self.blocks.get_mut(*stack_top).ok_or_else(|| ())?;
 
 		top_block.cost = top_block.cost.checked_add(val).ok_or_else(|| ())?;
-		println!("instruction for current block. incrementing, new cost: {:?}", top_block.cost);
 
 		Ok(())
 	}
@@ -190,7 +183,7 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 	static DEFAULT_START_GAS: i32 = 2000000000; // 4 billion is too big for signed integer
 
 	let global_gas_index = module.globals_space() as u32;
-	println!("total globals before injecting gas global: {:?}", global_gas_index);
+	//println!("total globals before injecting gas global: {:?}", global_gas_index);
 
 	let inline_gas_func_index = module.functions_space() as u32;
 
@@ -289,7 +282,7 @@ fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, impor
 	static DEFAULT_START_GAS: i32 = 2000000000; // 4 billion is too big for signed integer
 
 	let global_startgas_index = module.globals_space() as u32;
-	println!("total globals before injecting start gas global: {:?}", global_startgas_index);
+	//println!("total globals before injecting start gas global: {:?}", global_startgas_index);
 	let global_gas_index = global_startgas_index - 1;
 
 	//let inline_gas_func_index = module.functions_space() as u32;
@@ -399,7 +392,6 @@ pub fn inject_counter(
 
 			},
 			If(_) => {
-				println!("on if instruction. finalizing current block and beginning new...");
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
@@ -409,7 +401,6 @@ pub fn inject_counter(
 				counter.begin(cursor + 1, 0, false);
 			},
 			BrIf(_) => {
-				println!("on br_if instruction. finalizing current block and beginning new...");
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
@@ -469,7 +460,6 @@ pub fn inject_counter(
 			},
 			Unreachable => {
 				// charge nothing, do nothing
-				println!("skipping unreachable...");
 			},
 			_ => {
 				// An ordinal non control flow instruction. Just increment the cost of the current block.
@@ -575,7 +565,6 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 		match section {
 			&mut elements::Section::Code(ref mut code_section) => {
 				for ref mut func_body in code_section.bodies_mut() {
-					println!("doing metering over new function...");
 
 					// we aren't adding any new imports, so we dont need to do update_call_index
 					//update_call_index(func_body.code_mut(), inline_gas_func_index, inserted_funcs);
