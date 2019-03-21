@@ -58,7 +58,6 @@ impl Counter {
 	/// Begin a new block.
 	fn begin(&mut self, cursor: usize, cost: u32, flow_up: bool) {
 		let block_idx = self.blocks.len();
-		println!("beginning new block at idx: {:?}", block_idx);
 		self.blocks.push(BlockEntry {
 			start_pos: cursor,
 			cost: cost,
@@ -72,7 +71,6 @@ impl Counter {
 	/// Finalized blocks have final cost which will not change later.
 	fn finalize(&mut self) -> Result<(), ()> {
 		self.stack.pop().ok_or_else(|| ())?;
-		println!("stack size after finalizing: {:?}", self.stack.len());
 		Ok(())
 	}
 
@@ -111,12 +109,10 @@ impl Counter {
 		// find closest ancestor block (starting from top of stack and going down) with blocked flow and add 1
 
 		for (i, stack_i) in self.stack.iter().rev().enumerate() {
-			println!("stack at position {}: {:?}", i, stack_i);
 			let block_i = self.blocks.get_mut(*stack_i).ok_or_else(|| ())?;
-			println!("block_{:?} has cost: {:?}", *stack_i, block_i.cost);
 			if !block_i.flow_up || *stack_i == 0 {
 				block_i.cost = block_i.cost.checked_add(val).ok_or_else(|| ())?;
-				println!("found ancestor with blocked flow or no parent. incrementing to new cost: {:?} and returning...", block_i.cost);
+				//println!("found ancestor with blocked flow or no parent. incrementing to new cost: {:?} and returning...", block_i.cost);
 				break;
 			}
 		}
@@ -130,7 +126,6 @@ impl Counter {
 		let top_block = self.blocks.get_mut(*stack_top).ok_or_else(|| ())?;
 
 		top_block.cost = top_block.cost.checked_add(val).ok_or_else(|| ())?;
-		println!("instruction for current block. incrementing, new cost: {:?}", top_block.cost);
 
 		Ok(())
 	}
@@ -205,7 +200,6 @@ pub fn inject_counter(
 
 			},
 			If(_) => {
-				println!("on if instruction. finalizing current block and beginning new...");
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
@@ -215,7 +209,6 @@ pub fn inject_counter(
 				counter.begin(cursor + 1, 0, false);
 			},
 			BrIf(_) => {
-				println!("on br_if instruction. finalizing current block and beginning new...");
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
@@ -276,7 +269,6 @@ pub fn inject_counter(
 			},
 			Unreachable => {
 				// charge nothing, do nothing
-				println!("skipping unreachable...");
 			},
 			_ => {
 				// An ordinal non control flow instruction. Just increment the cost of the current block.
@@ -344,7 +336,6 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 		match section {
 			&mut elements::Section::Code(ref mut code_section) => {
 				for ref mut func_body in code_section.bodies_mut() {
-					println!("doing metering over new function...");
 					update_call_index(func_body.code_mut(), gas_func);
 					if let Err(_) = inject_counter(func_body.code_mut(), rules, gas_func) {
 						error = true;
