@@ -3,11 +3,11 @@ use std::vec::Vec;
 use parity_wasm::{elements, builder};
 use crate::rules;
 
-pub fn update_call_index(instructions: &mut elements::Instructions, inserted_index: u32) {
+pub fn update_call_index(instructions: &mut elements::Instructions, inserted_import_index: u32, inserted_funcs: u32) {
 	use parity_wasm::elements::Instruction::*;
 	for instruction in instructions.elements_mut().iter_mut() {
 		if let &mut Call(ref mut call_index) = instruction {
-			if *call_index >= inserted_index { *call_index += 1}
+			if *call_index >= inserted_import_index { *call_index += inserted_funcs}
 		}
 	}
 }
@@ -500,28 +500,39 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 
 	//let module_copy = mbuilder.build();
 
-	//module = inject_usegas_before_finish(module);
+	let (module2, usegas_import_ix_check) = find_usegas_import(module3);
+
+	let module1;
+	let inserted_imports;
+	if usegas_import_ix_check == None {
+		let mut mbuilder2 = builder::from_module(module2);
+		// Injecting useGas import
+		let import_sig = mbuilder2.push_signature(
+			builder::signature()
+				.param().i32()
+				.build_sig()
+			);
+
+		mbuilder2.push_import(
+			builder::import()
+				.module("ethereum")
+				.field("useGas")
+				.external().func(import_sig)
+				.build()
+			);
+		
+		module1 = mbuilder2.build();
+		inserted_imports = 1;
+	} else {
+		module1 = module2;
+		inserted_imports = 0;
+	}
+
+	let (module1a, usegas_import_ix) = find_usegas_import(module1);
+
+	let inserted_import_index = usegas_import_ix.unwrap();
 
 	/*
-	// we are doing inline gas metering, so disable the external metering
-	// Injecting gas counting external
-	let import_sig = mbuilder.push_signature(
-		builder::signature()
-			.param().i32()
-			.build_sig()
-		);
-
-	mbuilder.push_import(
-		builder::import()
-			.module("ethereum")
-			.field("useGas")
-			.external().func(import_sig)
-			.build()
-		);
-
-	// back to plain module
-	let mut module = mbuilder.build();
-
 	// calculate actual function index of the imported definition
 	//    (substract all imports that are NOT functions)
 
@@ -530,7 +541,7 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 
 
 	// for inline gas function
-	let inline_gas_func_index = module3.functions_space() as u32;
+	let inline_gas_func_index = module1a.functions_space() as u32;
 	// need to inject inline gas function after the metering statements,
 	// or the gas function itself with be metered and recursively call itself
 
@@ -540,8 +551,8 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 
 	let mut inserted_funcs = 1; // for the inline gas function
 
-	let (module2, usegas_import_ix) = find_usegas_import(module3);
-	let (mut module, finish_import_ix) = find_finish_import(module2);
+
+	let (mut module, finish_import_ix) = find_finish_import(module1a);
 
 	let do_inline_finish = match (usegas_import_ix, finish_import_ix) {
 		(Some(_usegas_i), Some(_finish_i)) => true,
@@ -565,9 +576,10 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 		match section {
 			&mut elements::Section::Code(ref mut code_section) => {
 				for ref mut func_body in code_section.bodies_mut() {
-
-					// we aren't adding any new imports, so we dont need to do update_call_index
-					//update_call_index(func_body.code_mut(), inline_gas_func_index, inserted_funcs);
+					// if we aren't adding any new imports, we dont need to do update_call_index
+					if inserted_imports > 0 {
+						update_call_index(func_body.code_mut(), inserted_import_index, inserted_imports);
+					}
 
 					if let Err(_) = inject_counter(func_body.code_mut(), rules, inline_gas_func_index) {
 						error = true;
@@ -583,24 +595,26 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 					}
 				}
 			},
-			/*
-			// we aren't adding any new imports, so dont need these.
+			// if we aren't adding any new imports, we dont need these.
 			&mut elements::Section::Export(ref mut export_section) => {
-				for ref mut export in export_section.entries_mut() {
-					if let &mut elements::Internal::Function(ref mut func_index) = export.internal_mut() {
-						//if *func_index >= inline_gas_func_index { *func_index += 1}
+				if inserted_imports > 0 {
+					for ref mut export in export_section.entries_mut() {
+						if let &mut elements::Internal::Function(ref mut func_index) = export.internal_mut() {
+							if *func_index >= inserted_import_index { *func_index += inserted_imports}
+						}
 					}
 				}
 			},
 			&mut elements::Section::Element(ref mut elements_section) => {
-				for ref mut segment in elements_section.entries_mut() {
-					// update all indirect call addresses initial values
-					for func_index in segment.members_mut() {
-						//if *func_index >= inline_gas_func_index { *func_index += 1}
+				if inserted_imports > 0 {
+					for ref mut segment in elements_section.entries_mut() {
+						// update all indirect call addresses initial values
+						for func_index in segment.members_mut() {
+							if *func_index >= inserted_import_index { *func_index += inserted_imports}
+						}
 					}
 				}
 			},
-			*/
 			_ => { }
 		}
 	}
