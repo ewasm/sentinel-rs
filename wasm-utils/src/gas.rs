@@ -74,52 +74,6 @@ impl Counter {
 		Ok(())
 	}
 
-	fn increment_control_flow(&mut self, val: u32) -> Result<(), ()> {
-		/*
-		;; if the current block and parent block has 0 cost, then we're seeing a sequence of nested blocks
-
-		(block $B1
-		  (block $B2
-		    (block $B3
-		      ...
-		     )))
-
-		;; instead of calling to useGas once after each block, we can sum up the 1 gas per `block` instructions
-		;; and charge for all three at the top of block $B1
-
-		;; instead of this:
-		(block $B1
-		  (call useGas (i32.const 1))
-		  (block $B2
-		    (call useGas (i32.const 1))
-		    (block $B3
-		      (call useGas (i32.const 1))
-		      ...
-		      )))
-
-		;; do this:
-		(block $B1
-		  (call useGas (i32.const 3))
-		  (block $B2
-		    (block $B3
-		      ...
-		      )))
-		*/
-
-		// find closest ancestor block (starting from top of stack and going down) with blocked flow and add 1
-
-		for (i, stack_i) in self.stack.iter().rev().enumerate() {
-			let block_i = self.blocks.get_mut(*stack_i).ok_or_else(|| ())?;
-			if !block_i.flow_up || *stack_i == 0 {
-				block_i.cost = block_i.cost.checked_add(val).ok_or_else(|| ())?;
-				//println!("found ancestor with blocked flow or no parent. incrementing to new cost: {:?} and returning...", block_i.cost);
-				break;
-			}
-		}
-		Ok(())
-
-	}
-
 	/// Increment the cost of the current block by the specified value.
 	fn increment(&mut self, val: u32) -> Result<(), ()> {
 		let stack_top = self.stack.last_mut().ok_or_else(|| ())?;
@@ -194,7 +148,7 @@ pub fn inject_counter(
 				// be included into this block.
 				
 				// add cost, which may flow up to ancestor block
-				counter.increment_control_flow(instruction_cost)?;
+				counter.increment(instruction_cost)?;
 
 				counter.begin(cursor + 1, 0, true);
 
@@ -203,7 +157,7 @@ pub fn inject_counter(
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
-				counter.increment_control_flow(instruction_cost)?;
+				counter.increment(instruction_cost)?;
 
 				// begin If with cost 1, to force new costs added to top of block
 				counter.begin(cursor + 1, 0, false);
@@ -212,7 +166,7 @@ pub fn inject_counter(
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
-				counter.increment_control_flow(instruction_cost)?;
+				counter.increment(instruction_cost)?;
 
 				// on a br_if, we finalize the previous block because those instructions will always be executed.
 				// intructions after the if will be executed conditionally, so we start a new block so that gasUsed can be called after the if.
@@ -229,14 +183,14 @@ pub fn inject_counter(
 				counter.begin(cursor + 1, 0, false);
 				// charge for the loop after the loop instruction
 				// need to do this because the loop could be executed many times (the br_if that jumps to the loop is a separate instruction and gas charge)
-				counter.increment_control_flow(instruction_cost)?;
+				counter.increment(instruction_cost)?;
 			},
 			Br(_) => {
 				// anything after a break is dead code.
 				// for now, we treat dead code blocks like any other (the metering will not be executed)
 				// TODO: handle properly and don't inject metering inside dead code blocks
 				let instruction_cost = rules.process(instruction)?;
-				counter.increment_control_flow(instruction_cost)?;
+				counter.increment(instruction_cost)?;
 				counter.finalize()?;
 				counter.begin(cursor + 1, 0, false);
 			},
@@ -274,7 +228,7 @@ pub fn inject_counter(
 				// An ordinal non control flow instruction. Just increment the cost of the current block.
 				let instruction_cost = rules.process(instruction)?;
 				//counter.increment(instruction_cost)?;
-				counter.increment_control_flow(instruction_cost)?;
+				counter.increment(instruction_cost)?;
 			}
 		}
 	}
