@@ -304,12 +304,12 @@ fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, impor
 				.signature().params().i32().i32().build().build()
 				.body()
 				.with_instructions(elements::Instructions::new(vec![
-					GetGlobal(global_gas_index), // this is gas left.  should instead call with total gas used.
 					GetGlobal(global_startgas_index),
+					GetGlobal(global_gas_index), // this is gas left.  should instead call with total gas used.
 					I32Sub, // gas used
 					Call(imported_gas_func),
-					GetLocal(1),
 					GetLocal(0),
+					GetLocal(1),
 					Call(imported_finish_func),
 					// Unreachable, // not entirely sure about this
 					End,
