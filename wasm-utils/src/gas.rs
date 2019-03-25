@@ -106,10 +106,8 @@ fn add_grow_counter(module: elements::Module, rules: &rules::Set, gas_func: u32)
 				.with_instructions(elements::Instructions::new(vec![
 					GetLocal(0),
 					GetLocal(0),
-					// I64Const(rules.grow_cost() as i64),
-					// I64Mul,
-					I32Const(rules.grow_cost() as i32),
-					I32Mul,
+					I64Const(rules.grow_cost() as i64),
+					I64Mul,
 					// todo: there should be strong guarantee that it does not return anything on stack?
 					Call(gas_func),
 					GrowMemory(0),
@@ -224,8 +222,7 @@ pub fn inject_counter(
 		if block.cost > 0 {
 			let effective_pos = block.start_pos + cumulative_offset;
 
-			//instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
-			instructions.elements_mut().insert(effective_pos, I32Const(block.cost as i32));
+			instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
 			instructions.elements_mut().insert(effective_pos+1, Call(gas_func));
 
 			// Take into account these two inserted instructions.
@@ -247,7 +244,7 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	let mut mbuilder = builder::from_module(module);
 	let import_sig = mbuilder.push_signature(
 		builder::signature()
-			.param().i32()
+			.param().i64()
 			.build_sig()
 		);
 
