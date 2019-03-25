@@ -36,7 +36,6 @@ struct BlockEntry {
 	start_pos: usize,
 	/// Sum of costs of all instructions until end of the block.
 	cost: u32,
-	flow_up: bool,
 }
 
 struct Counter {
@@ -56,12 +55,11 @@ impl Counter {
 	}
 
 	/// Begin a new block.
-	fn begin(&mut self, cursor: usize, cost: u32, flow_up: bool) {
+	fn begin(&mut self, cursor: usize, cost: u32) {
 		let block_idx = self.blocks.len();
 		self.blocks.push(BlockEntry {
 			start_pos: cursor,
 			cost: cost,
-			flow_up: flow_up,
 		});
 		self.stack.push(block_idx);
 	}
@@ -134,7 +132,7 @@ pub fn inject_counter(
 	let mut counter = Counter::new();
 
 	// Begin an implicit function (i.e. `func...end`) block.
-	counter.begin(0, 0, false);
+	counter.begin(0, 0);
 
 	for cursor in 0..instructions.elements().len() {
 		let instruction = &instructions.elements()[cursor];
@@ -142,45 +140,33 @@ pub fn inject_counter(
 			Block(_) => {
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
-				//counter.increment(instruction_cost)?;
-
-				// Begin new block. The cost of the following opcodes until `End` or `Else` will
-				// be included into this block.
-				
-				// add cost, which may flow up to ancestor block
 				counter.increment(instruction_cost)?;
 
-				counter.begin(cursor + 1, 0, true);
-
+				// Begin new block.
+				counter.begin(cursor + 1, 0);
 			},
 			If(_) => {
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
-				//counter.increment(instruction_cost)?;
 				counter.increment(instruction_cost)?;
 
-				// begin If with cost 1, to force new costs added to top of block
-				counter.begin(cursor + 1, 0, false);
+				counter.begin(cursor + 1, 0);
 			},
 			BrIf(_) => {
 				// Increment previous block with the cost of the current opcode.
 				let instruction_cost = rules.process(instruction)?;
-				//counter.increment(instruction_cost)?;
 				counter.increment(instruction_cost)?;
 
 				// on a br_if, we finalize the previous block because those instructions will always be executed.
 				// intructions after the if will be executed conditionally, so we start a new block so that gasUsed can be called after the if.
 				counter.finalize()?;
 
-				// begin If with cost 1, to force new costs added to top of block
-				counter.begin(cursor + 1, 0, false);
+				counter.begin(cursor + 1, 0);
 			},
 			Loop(_) => {
 				let instruction_cost = rules.process(instruction)?;
-				//counter.increment(instruction_cost)?;
-				//counter.increment_control_flow(instruction_cost)?;
- 
-				counter.begin(cursor + 1, 0, false);
+
+				counter.begin(cursor + 1, 0);
 				// charge for the loop after the loop instruction
 				// need to do this because the loop could be executed many times (the br_if that jumps to the loop is a separate instruction and gas charge)
 				counter.increment(instruction_cost)?;
@@ -192,7 +178,7 @@ pub fn inject_counter(
 				let instruction_cost = rules.process(instruction)?;
 				counter.increment(instruction_cost)?;
 				counter.finalize()?;
-				counter.begin(cursor + 1, 0, false);
+				counter.begin(cursor + 1, 0);
 			},
 			// br_table is always followed by end (in the ecmul wasm code, at least)
 			// BrTable(_,_) => { },
@@ -203,9 +189,8 @@ pub fn inject_counter(
 				//counter.increment_control_flow(instruction_cost)?;
 				// wasabi doesn't count end as an instruction, so neither will we (no gas charge)
 
-				
 				counter.finalize()?;
-				counter.begin(cursor + 1, 0, false);
+				counter.begin(cursor + 1, 0);
 			},
 			Else => {
 				// `Else` opcode is being encountered. So the case we are looking at:
@@ -219,7 +204,7 @@ pub fn inject_counter(
 				// Finalize the current block ('then' part of the if statement),
 				// and begin another one for the 'else' part.
 				counter.finalize()?;
-				counter.begin(cursor + 1, 1, false);
+				counter.begin(cursor + 1, 1);
 			},
 			Unreachable => {
 				// charge nothing, do nothing
