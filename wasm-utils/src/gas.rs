@@ -112,7 +112,7 @@ impl Counter {
 fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 	use parity_wasm::elements::Instruction::*;
 
-	static DEFAULT_START_GAS: i32 = 2000000000; // 4 billion is too big for signed integer
+	static DEFAULT_START_GAS: i64 = 2000000000; // 4 billion is too big for signed integer
 
 	let global_gas_index = module.globals_space() as u32;
 	//println!("total globals before injecting gas global: {:?}", global_gas_index);
@@ -124,7 +124,7 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 				.with_export(elements::ExportEntry::new("inlineUseGas".to_string(), elements::Internal::Function(inline_gas_func_index)));
 
 	let mut b2 = b.global().mutable()
-		.value_type().i32().init_expr(elements::Instruction::I32Const(DEFAULT_START_GAS))
+		.value_type().i64().init_expr(elements::Instruction::I64Const(DEFAULT_START_GAS))
 			.build()
 		.export()
 			.field("gas_global")
@@ -133,16 +133,16 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 
 	b2.push_function(
 			builder::function()
-				.signature().param().i32().build()
+				.signature().param().i64().build()
 				.body()
-					.with_locals(vec![elements::Local::new(1, elements::ValueType::I32)])
+					.with_locals(vec![elements::Local::new(1, elements::ValueType::I64)])
 					.with_instructions(elements::Instructions::new(vec![
 						GetGlobal(global_gas_index),
 						GetLocal(0), // local 0 is the input param
-						I32Sub,
-						TeeLocal(1), // save deducted gas to local, because stack item will be consumed by i32.lte_s
-						I32Const(0 as i32),
-						I32LtS,
+						I64Sub,
+						TeeLocal(1), // save deducted gas to local, because stack item will be consumed by i64.lte_s
+						I64Const(0 as i64),
+						I64LtS,
 						If(elements::BlockType::NoResult),
 							Unreachable,
 						End,
@@ -180,7 +180,7 @@ fn inject_finish_inline_calls(instructions: &mut elements::Instructions, finish_
 fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, imported_gas_func: u32, imported_finish_func: u32, inline_finish_func_ix: u32) -> elements::Module {
 	use parity_wasm::elements::Instruction::*;
 
-	static DEFAULT_START_GAS: i32 = 2000000000; // 4 billion is too big for signed integer
+	static DEFAULT_START_GAS: i64 = 2000000000; // 4 billion is too big for signed integer
 
 	let global_startgas_index = module.globals_space() as u32;
 	//println!("total globals before injecting start gas global: {:?}", global_startgas_index);
@@ -193,7 +193,7 @@ fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, impor
 				.with_export(elements::ExportEntry::new("inlineFinish".to_string(), elements::Internal::Function(inline_finish_func_ix)));
 
 	let mut b2 = b.global().mutable()
-		.value_type().i32().init_expr(elements::Instruction::I32Const(DEFAULT_START_GAS))
+		.value_type().i64().init_expr(elements::Instruction::I64Const(DEFAULT_START_GAS))
 			.build()
 		.export()
 			.field("startgas_global")
@@ -207,7 +207,7 @@ fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, impor
 				.with_instructions(elements::Instructions::new(vec![
 					GetGlobal(global_startgas_index),
 					GetGlobal(global_gas_index), // this is gas left.  should instead call with total gas used.
-					I32Sub, // gas used
+					I64Sub, // gas used
 					Call(imported_gas_func),
 					GetLocal(0),
 					GetLocal(1),
@@ -395,7 +395,7 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 		// Injecting useGas import
 		let import_sig = mbuilder2.push_signature(
 			builder::signature()
-				.param().i32()
+				.param().i64()
 				.build_sig()
 			);
 
