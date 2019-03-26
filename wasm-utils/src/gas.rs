@@ -108,7 +108,7 @@ impl Counter {
 
 		// find closest ancestor block (starting from top of stack and going down) with blocked flow and add 1
 
-		for (i, stack_i) in self.stack.iter().rev().enumerate() {
+		for (_i, stack_i) in self.stack.iter().rev().enumerate() {
 			let block_i = self.blocks.get_mut(*stack_i).ok_or_else(|| ())?;
 			if !block_i.flow_up || *stack_i == 0 {
 				block_i.cost = block_i.cost.checked_add(val).ok_or_else(|| ())?;
@@ -120,15 +120,6 @@ impl Counter {
 
 	}
 
-	/// Increment the cost of the current block by the specified value.
-	fn increment(&mut self, val: u32) -> Result<(), ()> {
-		let stack_top = self.stack.last_mut().ok_or_else(|| ())?;
-		let top_block = self.blocks.get_mut(*stack_top).ok_or_else(|| ())?;
-
-		top_block.cost = top_block.cost.checked_add(val).ok_or_else(|| ())?;
-
-		Ok(())
-	}
 }
 
 fn inject_grow_counter(instructions: &mut elements::Instructions, grow_counter_func: u32) -> usize {
@@ -154,10 +145,8 @@ fn add_grow_counter(module: elements::Module, rules: &rules::Set, gas_func: u32)
 				.with_instructions(elements::Instructions::new(vec![
 					GetLocal(0),
 					GetLocal(0),
-					// I64Const(rules.grow_cost() as i64),
-					// I64Mul,
-					I32Const(rules.grow_cost() as i32),
-					I32Mul,
+					I64Const(rules.grow_cost() as i64),
+					I64Mul,
 					// todo: there should be strong guarantee that it does not return anything on stack?
 					Call(gas_func),
 					GrowMemory(0),
@@ -285,8 +274,7 @@ pub fn inject_counter(
 		if block.cost > 0 {
 			let effective_pos = block.start_pos + cumulative_offset;
 
-			//instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
-			instructions.elements_mut().insert(effective_pos, I32Const(block.cost as i32));
+			instructions.elements_mut().insert(effective_pos, I64Const(block.cost as i64));
 			instructions.elements_mut().insert(effective_pos+1, Call(gas_func));
 
 			// Take into account these two inserted instructions.
@@ -308,7 +296,7 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	let mut mbuilder = builder::from_module(module);
 	let import_sig = mbuilder.push_signature(
 		builder::signature()
-			.param().i32()
+			.param().i64()
 			.build_sig()
 		);
 
