@@ -115,7 +115,7 @@ pub fn pack_instance(raw_module: Vec<u8>, mut ctor_module: elements::Module) -> 
                 match *section {
                     elements::Section::Code(ref mut code_section) => {
                         for ref mut func_body in code_section.bodies_mut() {
-                            update_call_index(func_body.code_mut(), ret_func);
+                            update_call_index(func_body.code_mut(), ret_func, 1);
                         }
                     },
                     elements::Section::Export(ref mut export_section) => {
