@@ -3,6 +3,8 @@ use std::vec::Vec;
 use parity_wasm::{elements, builder};
 use crate::rules;
 
+static DEFAULT_START_GAS: i64 = 1000000000000; // 1 trillion
+
 pub fn update_call_index(instructions: &mut elements::Instructions, inserted_import_index: u32, inserted_funcs: u32) {
 	use parity_wasm::elements::Instruction::*;
 	for instruction in instructions.elements_mut().iter_mut() {
@@ -112,8 +114,6 @@ impl Counter {
 fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 	use parity_wasm::elements::Instruction::*;
 
-	static DEFAULT_START_GAS: i64 = 2000000000; // 4 billion is too big for signed integer
-
 	let global_gas_index = module.globals_space() as u32;
 	//println!("total globals before injecting gas global: {:?}", global_gas_index);
 
@@ -179,8 +179,6 @@ fn inject_finish_inline_calls(instructions: &mut elements::Instructions, finish_
 // this is an easy way to tell the host what the total gas used was (so host doesn't have to check the gas global)
 fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, imported_gas_func: u32, imported_finish_func: u32, inline_finish_func_ix: u32) -> elements::Module {
 	use parity_wasm::elements::Instruction::*;
-
-	static DEFAULT_START_GAS: i64 = 2000000000; // 4 billion is too big for signed integer
 
 	let global_startgas_index = module.globals_space() as u32;
 	//println!("total globals before injecting start gas global: {:?}", global_startgas_index);
