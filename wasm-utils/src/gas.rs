@@ -15,50 +15,6 @@ pub fn update_call_index(instructions: &mut elements::Instructions, inserted_imp
 }
 
 
-pub fn find_finish_import(module: elements::Module) -> (elements::Module, Option<u32>) {
-	let mut finish_ix = None;
-
-	for section in module.sections() {
-		match *section {
-			elements::Section::Import(ref import_section) => {
-				for (i, e) in import_section.entries().iter().enumerate() {
-					//println!("    {}.{}  external has index {:?}", e.module(), e.field(), i);
-					if e.module() == "ethereum" && e.field() == "finish" {
-						println!("ethereum.finish import has index: {}", i);
-						finish_ix = Some(i as u32);
-					}
-				};
-			},
-			_ => {},
-		}
-	}
-
-	(module, finish_ix)
-
-}
-
-
-pub fn find_usegas_import(module: elements::Module) -> (elements::Module, Option<u32>) {
-	let mut usegas_ix = None;
-
-	for section in module.sections() {
-		match *section {
-			elements::Section::Import(ref import_section) => {
-				for (i, e) in import_section.entries().iter().enumerate() {
-					if e.module() == "ethereum" && e.field() == "useGas" {
-						println!("ethereum.useGas import has index: {}", i);
-						usegas_ix = Some(i as u32);
-					}
-				};
-			},
-			_ => {},
-		}
-	}
-
-	(module, usegas_ix)
-}
-
-
 
 /// A block of code represented by it's start position and cost.
 ///
@@ -179,7 +135,7 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 	let inline_gas_func_index = module.functions_space() as u32;
 
 	let b = builder::from_module(module)
-				// the export is a workaround to add debug name "useGas"
+				// the export is a workaround to add debug name "inlineUseGas"
 				.with_export(elements::ExportEntry::new("inlineUseGas".to_string(), elements::Internal::Function(inline_gas_func_index)));
 
 	let mut b2 = b.global().mutable()
@@ -218,98 +174,7 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 }
 
 
-// todo: also need revert_inline_calls
 
-fn inject_finish_inline_calls(instructions: &mut elements::Instructions, finish_import_func: u32, finish_inline_func: u32) -> usize {
-	use parity_wasm::elements::Instruction::*;
-	let mut counter = 0;
-	for instruction in instructions.elements_mut() {
-		if let Call(ref call_index) = *instruction {
-			if *call_index == finish_import_func {
-				*instruction = Call(finish_inline_func);
-			}
-			counter += 1;
-		}
-	}
-	counter
-}
-
-
-/*
-// something about this version of add_inline_finish_func prevents wabt wasm2wat from generating names
-fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, imported_gas_func: u32, imported_finish_func: u32, inline_finish_func_ix: u32) -> elements::Module {
-	use parity_wasm::elements::Instruction::*;
-
-	let mut b = builder::from_module(module)
-			// with_export is a workaround to add debug name
-			.with_export(elements::ExportEntry::new("inlineFinish".to_string(), elements::Internal::Function(inline_finish_func_ix)));
-	b.push_function(
-		builder::function()
-			.signature().params().i32().i32().build().build()
-			.body()
-				.with_instructions(elements::Instructions::new(vec![
-					GetGlobal(global_gas_index), // this is gas left.  should instead call with total gas used.
-					Call(imported_gas_func),
-					GetLocal(1),
-					GetLocal(0),
-					Call(imported_finish_func),
-					// Unreachable, // not entirely sure about this
-					End,
-				]))
-				.build()
-			.build()
-	);
-
-	b.build()
-}
-*/
-
-
-// instead of calling finish directly, first call useGas then call finish.
-// this is an easy way to tell the host what the total gas used was (so host doesn't have to check the gas global)
-fn add_inline_finish_func(module: elements::Module, global_gas_index: u32, imported_gas_func: u32, imported_finish_func: u32, inline_finish_func_ix: u32) -> elements::Module {
-	use parity_wasm::elements::Instruction::*;
-
-	let global_startgas_index = module.globals_space() as u32;
-	//println!("total globals before injecting start gas global: {:?}", global_startgas_index);
-	let global_gas_index = global_startgas_index - 1;
-
-	//let inline_gas_func_index = module.functions_space() as u32;
-
-	let b = builder::from_module(module)
-				// the export is a workaround to add debug name "useGas"
-				.with_export(elements::ExportEntry::new("inlineFinish".to_string(), elements::Internal::Function(inline_finish_func_ix)));
-
-	let mut b2 = b.global().mutable()
-		.value_type().i64().init_expr(elements::Instruction::I64Const(DEFAULT_START_GAS))
-			.build()
-		.export()
-			.field("startgas_global")
-			.internal().global(global_startgas_index)
-			.build();
-
-	b2.push_function(
-			builder::function()
-				.signature().params().i32().i32().build().build()
-				.body()
-				.with_instructions(elements::Instructions::new(vec![
-					GetGlobal(global_startgas_index),
-					GetGlobal(global_gas_index), // this is gas left.  should instead call with total gas used.
-					I64Sub, // gas used
-					Call(imported_gas_func),
-					GetLocal(0),
-					GetLocal(1),
-					Call(imported_finish_func),
-					// Unreachable, // not entirely sure about this
-					End,
-				]))
-					.build()
-				.build()
-		);
-
-	b2.build()
-
-}
 
 
 fn inject_grow_counter(instructions: &mut elements::Instructions, grow_counter_func: u32) -> usize {
@@ -486,37 +351,18 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 
 	//let module_copy = mbuilder.build();
 
-	let (module2, usegas_import_ix_check) = find_usegas_import(module3);
+	let module2 = module3;
 
 	let module1;
 	let inserted_imports;
-	if usegas_import_ix_check == None {
-		let mut mbuilder2 = builder::from_module(module2);
-		// Injecting useGas import
-		let import_sig = mbuilder2.push_signature(
-			builder::signature()
-				.param().i64()
-				.build_sig()
-			);
 
-		mbuilder2.push_import(
-			builder::import()
-				.module("ethereum")
-				.field("useGas")
-				.external().func(import_sig)
-				.build()
-			);
-		
-		module1 = mbuilder2.build();
-		inserted_imports = 1;
-	} else {
-		module1 = module2;
-		inserted_imports = 0;
-	}
+	module1 = module2;
+	inserted_imports = 0;
 
-	let (module1a, usegas_import_ix) = find_usegas_import(module1);
+	let mut module = module1;
 
-	let inserted_import_index = usegas_import_ix.unwrap();
+	//let inserted_import_index = usegas_import_ix.unwrap();
+	let inserted_import_index = 0;
 
 	/*
 	// calculate actual function index of the imported definition
@@ -527,7 +373,7 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 
 
 	// for inline gas function
-	let inline_gas_func_index = module1a.functions_space() as u32;
+	let inline_gas_func_index = module.functions_space() as u32;
 	// need to inject inline gas function after the metering statements,
 	// or the gas function itself with be metered and recursively call itself
 
@@ -536,21 +382,6 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	// so a new import will bump all function indexes up by 1.
 
 	let mut inserted_funcs = 1; // for the inline gas function
-
-
-	let (mut module, finish_import_ix) = find_finish_import(module1a);
-
-	let do_inline_finish = match (usegas_import_ix, finish_import_ix) {
-		(Some(_usegas_i), Some(_finish_i)) => true,
-		_ => false,
-	};
-
-	//do_inline_finish = false;
-	let mut inline_finish_func_ix = 0;
-	if do_inline_finish {
-		inline_finish_func_ix = inline_gas_func_index + 1;
-		inserted_funcs = inserted_funcs + 1; // for the inline finish function
-	}
 
 	let total_func = (inline_gas_func_index - 1) + inserted_funcs;
 
@@ -570,9 +401,6 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 					if let Err(_) = inject_counter(func_body.code_mut(), rules, inline_gas_func_index) {
 						error = true;
 						break;
-					}
-					if do_inline_finish {
-						inject_finish_inline_calls(func_body.code_mut(), finish_import_ix.unwrap(), inline_finish_func_ix);
 					}
 					if rules.grow_cost() > 0 {
 						if inject_grow_counter(func_body.code_mut(), total_func) > 0 {
@@ -610,12 +438,6 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	// metering calls have been injected, now inject inline gas func 
 	// inline gas func has to go first
 	module = add_inline_gas_func(module);
-
-	if do_inline_finish {
-		// inline finish func has to go second
-		let global_gas_index = module.globals_space() as u32;
-		module = add_inline_finish_func(module, global_gas_index, usegas_import_ix.unwrap(), finish_import_ix.unwrap(), inline_finish_func_ix);
-	}
 
 	if need_grow_counter { Ok(add_grow_counter(module, rules, inline_gas_func_index)) } else { Ok(module) }
 }
