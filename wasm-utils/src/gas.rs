@@ -138,6 +138,12 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 				// the export is a workaround to add debug name "inlineUseGas"
 				.with_export(elements::ExportEntry::new("inlineUseGas".to_string(), elements::Internal::Function(inline_gas_func_index)));
 
+// don't export mutable global. wasmi can't deal
+let mut b2 = b.global().mutable()
+	.value_type().i64().init_expr(elements::Instruction::I64Const(DEFAULT_START_GAS))
+		.build();
+
+/*
 	let mut b2 = b.global().mutable()
 		.value_type().i64().init_expr(elements::Instruction::I64Const(DEFAULT_START_GAS))
 			.build()
@@ -145,6 +151,7 @@ fn add_inline_gas_func(module: elements::Module) -> elements::Module {
 			.field("gas_global")
 			.internal().global(global_gas_index)
 			.build();
+*/
 
 	b2.push_function(
 			builder::function()
