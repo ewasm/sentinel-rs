@@ -24,4 +24,6 @@ jobs:
              git diff --exit-code
       - run:
           name: Build
-          command: just
+          command: |
+             just
+             test -f target/wasm32-unknown-unknown/release/sentinel_rs.wasm

@@ -1,0 +1,10 @@
+sentinel:
+  file: "target/wasm32-unknown-unknown/release/sentinel_rs.wasm"
+  remapimports:
+    preset: "ewasm"
+  trimexports:
+    preset: "ewasm"
+  verifyexports:
+    preset: "ewasm"
+  verifyimports:
+    preset: "ewasm"

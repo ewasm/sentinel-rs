@@ -25,7 +25,7 @@ The resulting binary is at `target/wasm32-unknown-unknown/release/sentinel_rs.wa
 3. Transform with chisel
 
 ```sh
-$ chisel target/wasm32-unknown-unknown/release/sentinel_rs.wasm sentinel.wasm
+$ chisel run
 ```
 
 Now you have the binary ready.
