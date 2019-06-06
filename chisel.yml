@@ -8,3 +8,5 @@ sentinel:
     preset: "ewasm"
   verifyimports:
     preset: "ewasm"
+  repack:
+    preset: "ewasm"
