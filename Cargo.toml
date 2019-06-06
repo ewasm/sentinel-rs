@@ -12,7 +12,7 @@ publish = false
 edition = "2018"
 
 [dependencies]
-ewasm_api = "0.7"
+ewasm_api = "0.9"
 pwasm-utils = { path = "wasm-utils" }
 parity-wasm = "0.31"
 
