@@ -122,6 +122,55 @@ impl Counter {
 
 }
 
+fn inject_inline_gas(module: elements::Module) -> elements::Module {
+	use parity_wasm::elements::Instruction::*;
+
+	static DEFAULT_START_GAS: i32 = 2000000000; // 4 billion is too big for signed integer
+
+	let global_gas_index = module.globals_space() as u32;
+	println!("total globals before injecting gas global: {:?}", global_gas_index);
+
+	let gas_func_index = module.functions_space() as u32;
+
+	let b = builder::from_module(module)
+				// the export is a workaround to add debug name "useGas"
+				.with_export(elements::ExportEntry::new("useGas".to_string(), elements::Internal::Function(gas_func_index)));
+
+	let mut b2 = b.global().mutable()
+		.value_type().i32().init_expr(elements::Instruction::I32Const(DEFAULT_START_GAS))
+			.build()
+		.export()
+			.field("gas_global")
+			.internal().global(global_gas_index)
+			.build();
+
+	b2.push_function(
+			builder::function()
+				.signature().param().i32().build()
+				.body()
+					.with_locals(vec![elements::Local::new(1, elements::ValueType::I32)])
+					.with_instructions(elements::Instructions::new(vec![
+						GetGlobal(global_gas_index),
+						GetLocal(0), // local 0 is the input param
+						I32Sub,
+						TeeLocal(1), // save deducted gas to local, because stack item will be consumed by i32.lte_s
+						I32Const(0 as i32),
+						I32LtS,
+						If(elements::BlockType::NoResult),
+							Unreachable,
+						End,
+						GetLocal(1), // put deducted gas back on stack
+						SetGlobal(global_gas_index), // save to global
+						End,
+					]))
+					.build()
+				.build()
+		);
+
+	b2.build()
+
+}
+
 fn inject_grow_counter(instructions: &mut elements::Instructions, grow_counter_func: u32) -> usize {
 	use parity_wasm::elements::Instruction::*;
 	let mut counter = 0;
@@ -292,8 +341,12 @@ pub fn inject_counter(
 pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	-> Result<elements::Module, elements::Module>
 {
+	let mbuilder = builder::from_module(module);
+	let mut module = mbuilder.build();
+
+	/*
+	// we are doing inline gas metering, so disable the external metering
 	// Injecting gas counting external
-	let mut mbuilder = builder::from_module(module);
 	let import_sig = mbuilder.push_signature(
 		builder::signature()
 			.param().i64()
@@ -315,7 +368,16 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	//    (substract all imports that are NOT functions)
 
 	let gas_func = module.import_count(elements::ImportCountType::Function) as u32 - 1;
-	let total_func = module.functions_space() as u32;
+	*/
+
+
+	// for inline gas function
+	let gas_func = module.functions_space() as u32;
+
+	// need to inject inline gas function after the metering statements,
+	// or the gas function itself with be metered and recursively call itself
+
+	let total_func = gas_func + 1;
 	let mut need_grow_counter = false;
 	let mut error = false;
 
@@ -356,6 +418,9 @@ pub fn inject_gas_counter(module: elements::Module, rules: &rules::Set)
 	}
 
 	if error { return Err(module); }
+
+	// metering calls have been injected, now inject inline gas func 
+	module = inject_inline_gas(module);
 
 	if need_grow_counter { Ok(add_grow_counter(module, rules, gas_func)) } else { Ok(module) }
 }
