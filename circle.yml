@@ -15,7 +15,7 @@ jobs:
       - run:
            name: Install tools
            command: |
-             cargo install just chisel
+             cargo install chisel
       - run:
            name: Check formatting
            command: |
@@ -24,5 +24,5 @@ jobs:
       - run:
           name: Build
           command: |
-             just
+             make
              test -f target/wasm32-unknown-unknown/release/sentinel_rs.wasm
