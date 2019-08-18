@@ -4,15 +4,13 @@ Validator and metering injector for eWASM.
 
 ## Build
 
-1. Download wasm-chisel and build it
+1. Install wasm-chisel
 
 ```sh
-$ git clone https://github.com/wasmx/wasm-chisel
-$ cd wasm-chisel
-$ cargo build --release
+$ cargo install chisel
 ```
 
-The CLI is placed into `target/release/chisel`. Make sure this `chisel` binary is available in the path.
+Make sure to install at least 0.5.0.
 
 2. Build sentinel
 
