@@ -13,7 +13,7 @@ edition = "2018"
 
 [dependencies]
 ewasm_api = "0.10"
-libchisel = { git = "https://github.com/wasmx/wasm-chisel", rev = "df93792" }
+libchisel = { git = "https://github.com/wasmx/wasm-chisel", rev = "76108d98" }
 pwasm-utils = { path = "wasm-utils" }
 parity-wasm = "0.31"
 
