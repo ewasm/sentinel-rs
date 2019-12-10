@@ -20,7 +20,7 @@ jobs:
            name: Check formatting
            command: |
              rustfmt --version
-             cargo fmt --all -- --check
+             cargo fmt -- src/* --check
       - run:
           name: Build
           command: |
