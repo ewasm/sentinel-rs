@@ -7,7 +7,11 @@ use libchisel::{checkstartfunc::*, verifyexports::*, verifyimports::*};
 use libchisel::{ModulePreset, ModuleValidator};
 
 fn validate_contract(module: &[u8]) -> bool {
-    let module = libchisel::module_from_slice(module);
+    let module = libchisel::Module::from_bytes(module);
+    if module.is_err() {
+        return false;
+    }
+    let module = module.unwrap();
 
     // Ensure no start functions is present.
     if !CheckStartFunc::new(false).validate(&module).unwrap() {
